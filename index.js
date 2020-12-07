@@ -5,22 +5,39 @@ const helmet = require('helmet');
 const yup = require('yup');
 const monk = require('monk');
 
+import all from './routes/all.get';
+import last from './routes/last.get';
+import detail from './routes/detail.get';
+import logger from './routes/logger.post';
+import deleteAll from './routes/all.delete';
+import deleteDetail from './routes/detail.delete';
+import notFoundMiddleware from './middlewares/not-found.middleware';
+import genericErrorMiddleware from './middlewares/generic-error.middleware';
+
 // Read .env
 require('dotenv').config();
 
 // Setup express app & middlewares
 const app = express();
 app.enable('trust proxy');
+
+// Lib middlewares
 app.use(helmet());
 app.use(morgan('common'));
 app.use(express.json());
 
+// Custom middlewares
+app.use(notFoundMiddleware(notFoundPath));
+app.use(genericErrorMiddleware());
+
 // Get db
 const db = monk(process.env.MONGODB_URI);
+
 // Setup logs "table" indexes
 const logs = db.get('logs');
 logs.createIndex({ timestamp: 1 });
 logs.createIndex({ line: 1 }, { unique: true });
+
 // Define "table" constraints
 const schema = yup.object().shape({
   timestamp: yup.date().required(),
@@ -32,116 +49,23 @@ const schema = yup.object().shape({
 const notFoundPath = path.join(__dirname, 'public/404.html');
 const errorPath = path.join(__dirname, 'public/500.html');
 
-app.get('/all', async (_req, res, next) => {
-  try {
-    const list = await logs.find({});
-    if (list) {
-      return res.json(list);
-    }
+// Declare routes
 
-    return res.status(404).sendFile(notFoundPath);
-  } catch (error) {
-    next(error);
-  }
-});
+// GET
+app.get('/all', all(logs, notFoundPath));
+app.get('/last', last(logs, notFoundPath));
+app.get('/:id', detail(logs, notFoundPath));
 
-app.get('/last', async (_req, res, next) => {
-  try {
-    const last = await logs.findOne({}, { sort: { line: -1 }, limit: 1 });
-    if (last) {
-      return res.json(last);
-    }
+// POST
+app.post('/logger', logger(schema, logs));
 
-    return res.status(404).sendFile(notFoundPath);
-  } catch (error) {
-    next(error);
-  }
-});
+// DELETE
+app.delete('/all', deleteAll(logs));
+app.delete('/:id', deleteDetail(logs, notFoundPath));
 
-app.get('/:id', async (req, res, next) => {
-  const { id } = req.params;
-  try {
-    const log = await logs.findOne({ _id: monk.id(id) });
-    if (log) {
-      return res.json(log);
-    }
-
-    return res.status(404).sendFile(notFoundPath);
-  } catch (error) {
-    if (process.env.NODE_ENV === 'production') {
-      return res.status(404).sendFile(notFoundPath);
-    } else {
-      next(error);
-    }
-  }
-});
-
-app.post('/logger', async (req, res, next) => {
-  const list = req.body;
-  const result = [];
-  try {
-    list.forEach(async (row) => {
-      const { timestamp, logContent, line } = row;
-      await schema.validate({
-        timestamp,
-        logContent,
-        line,
-      });
-
-      const log = {
-        timestamp,
-        logContent,
-        line,
-      };
-      const created = await logs.insert(log);
-      result.push(created);
-    });
-
-    return res.json(result);
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.delete('/all', async (_req, res, next) => {
-  try {
-    await logs.remove({}, { multi: true });
-    return res.status(200).send('ok');
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.delete('/:id', async (req, res, next) => {
-  const { id } = req.params;
-  try {
-    await logs.remove({ _id: monk.id(id) }, { multi: false });
-    return res.status(200).send('ok');
-  } catch (error) {
-    if (process.env.NODE_ENV === 'production') {
-      return res.status(404).sendFile(notFoundPath);
-    } else {
-      next(error);
-    }
-  }
-});
-
-app.use((_req, res, _next) => {
-  return res.status(404).sendFile(notFoundPath);
-});
-
-app.use((error, _req, res, _next) => {
-  return res.status(error.status || 500).json({
-    message:
-      process.env.NODE_ENV === 'production' &&
-      (error.status === 500 || !error.status)
-        ? 'Qualcosa è andato storto'
-        : error.message,
-    stack: process.env.NODE_ENV === 'production' ? '🥞' : error.stack,
-  });
-});
-
-const port = process.env.PORT || 8080;
-app.listen(port, '127.0.0.1', () => {
-  console.log(`Listening at http://127.0.0.1:${port}`);
-});
+// Start server
+const port = process.env.PORT || 8000;
+const host = process.env.HOST || '127.0.0.1';
+app.listen(port, host, () =>
+  console.log(`Listening at http://${host}:${port}`)
+);
