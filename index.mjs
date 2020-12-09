@@ -19,8 +19,8 @@ import genericErrorMiddleware from './middlewares/generic-error.middleware.mjs';
 dotenv.config();
 
 // Define error paths
-const notFoundPath = path.join(__dirname, 'public/404.html');
-const errorPath = path.join(__dirname, 'public/500.html');
+const notFoundPath = path.join(path.resolve(''), 'public/404.html');
+const errorPath = path.join(path.resolve(''), 'public/500.html');
 
 // Setup express app & middlewares
 const app = express();
