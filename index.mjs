@@ -1,21 +1,26 @@
-const path = require('path');
-const express = require('express');
-const morgan = require('morgan');
-const helmet = require('helmet');
-const yup = require('yup');
-const monk = require('monk');
+import path from 'path';
+import express from 'express';
+import morgan from 'morgan';
+import helmet from 'helmet';
+import yup from 'yup';
+import monk from 'monk';
+import dotenv from 'dotenv';
 
-import all from './routes/all.get';
-import last from './routes/last.get';
-import detail from './routes/detail.get';
-import logger from './routes/logger.post';
-import deleteAll from './routes/all.delete';
-import deleteDetail from './routes/detail.delete';
-import notFoundMiddleware from './middlewares/not-found.middleware';
-import genericErrorMiddleware from './middlewares/generic-error.middleware';
+import all from './routes/all.get.mjs';
+import last from './routes/last.get.mjs';
+import detail from './routes/detail.get.mjs';
+import logger from './routes/logger.post.mjs';
+import deleteAll from './routes/all.delete.mjs';
+import deleteDetail from './routes/detail.delete.mjs';
+import notFoundMiddleware from './middlewares/not-found.middleware.mjs';
+import genericErrorMiddleware from './middlewares/generic-error.middleware.mjs';
 
 // Read .env
-require('dotenv').config();
+dotenv.config();
+
+// Define error paths
+const notFoundPath = path.join(__dirname, 'public/404.html');
+const errorPath = path.join(__dirname, 'public/500.html');
 
 // Setup express app & middlewares
 const app = express();
@@ -44,10 +49,6 @@ const schema = yup.object().shape({
   logContent: yup.string().trim().required(),
   line: yup.number().required(),
 });
-
-// Define error paths
-const notFoundPath = path.join(__dirname, 'public/404.html');
-const errorPath = path.join(__dirname, 'public/500.html');
 
 // Declare routes
 
