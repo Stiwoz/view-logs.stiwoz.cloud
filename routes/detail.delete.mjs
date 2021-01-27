@@ -1,7 +1,7 @@
 const detail = (logs, notFoundPath) => async (req, res, next) => {
-  const { id } = req.params;
+  const { uuid } = req.params;
   try {
-    await logs.remove({ _id: monk.id(id) }, { multi: false });
+    await logs.remove({ uuid }, { multi: false });
     return res.status(200).send('ok');
   } catch (error) {
     if (process.env.NODE_ENV === 'production') {

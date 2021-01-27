@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import yup from 'yup';
 import monk from 'monk';
 import dotenv from 'dotenv';
+import { v4 as uuidv4 } from 'uuid';
 
 import all from './routes/all.get.mjs';
 import last from './routes/last.get.mjs';
@@ -39,30 +40,30 @@ app.use(genericErrorMiddleware());
 const db = monk(process.env.MONGODB_URI);
 
 // Setup logs "table" indexes
-const logs = db.get('logs');
-logs.createIndex({ timestamp: 1 });
-logs.createIndex({ line: 1 }, { unique: true });
+const table = db.get('bw');
+table.createIndex({ timestamp: 1 });
+table.createIndex({ uuid: 1 }, { unique: true });
 
 // Define "table" constraints
 const schema = yup.object().shape({
-  timestamp: yup.date().required(),
-  logContent: yup.string().trim().required(),
-  line: yup.number().required(),
+  uuid: yup.string().trim().uuid().required().default(uuidv4()),
+  timestamp: yup.date().required().default(new Date()),
+  data: yup.object().required(),
 });
 
 // Declare routes
 
 // GET
-app.get('/all', all(logs, notFoundPath));
-app.get('/last', last(logs, notFoundPath));
-app.get('/:id', detail(logs, notFoundPath));
+app.get('/all', all(table, notFoundPath));
+app.get('/last', last(table, notFoundPath));
+app.get('/:id', detail(table, notFoundPath));
 
 // POST
-app.post('/logger', logger(schema, logs));
+app.post('/logger', logger(schema, table));
 
 // DELETE
-app.delete('/all', deleteAll(logs));
-app.delete('/:id', deleteDetail(logs, notFoundPath));
+app.delete('/all', deleteAll(table));
+app.delete('/:id', deleteDetail(table, notFoundPath));
 
 // Start server
 const port = process.env.PORT || 8000;

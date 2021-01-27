@@ -1,7 +1,7 @@
 const detail = (logs, notFoundPath) => async (req, res, next) => {
-  const { id } = req.params;
+  const { uuid } = req.params;
   try {
-    const log = await logs.findOne({ _id: monk.id(id) });
+    const log = await logs.findOne({ uuid });
     if (log) {
       return res.json(log);
     }
